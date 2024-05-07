@@ -8,7 +8,7 @@ from sklearn.metrics import confusion_matrix, accuracy_score
 import numpy as np
 
 # Initialize the Dash app
-app = dash.Dash(__name__)
+app = dash.Dash(__name__, external_stylesheets=['https://stackpath.bootstrapcdn.com/bootswatch/4.5.2/superhero/bootstrap.min.css'])
 
 # Define the layout of the app
 app.layout = html.Div([
@@ -17,7 +17,7 @@ app.layout = html.Div([
         html.Label("Upload Machine Learning Model to Test:"),
         dcc.Upload(
             id='upload-model',
-            children=html.Button('Upload Model'),
+            children=html.Button('Upload Model' , className="btn btn-primary mb-3"),
             multiple=False
         ),
         html.Label("Select Dataset:"),
@@ -27,25 +27,33 @@ app.layout = html.Div([
                 {'label': 'Dataset 1', 'value': 'dataset1'},
                 {'label': 'Dataset 2', 'value': 'dataset2'},
             ],
-            placeholder="Select a preloaded dataset"
+            placeholder="Select a preloaded dataset" , className="form-control mb-3"
         ),
+        html.Div(id='upload-dataset-div', style={'display': 'none'}, children=[
+            html.Label("Upload Dataset:"),
+            dcc.Upload(
+                id='upload-dataset',
+                children=html.Button('Upload Dataset', className="btn btn-primary mb-3"),
+                multiple=False
+            ) 
+         ]),
         html.Label("Upload Annotation File:"),
         dcc.Upload(
             id='upload-annotation',
-            children=html.Button('Upload Annotation File'),
+            children=html.Button('Upload Annotation File' , className="btn btn-primary mb-3"),
             multiple=False
         ),
         html.Label("Number of Samples for Randomization:"),
         dcc.Input(
             id='num-samples',
             type='number',
-            value=100
+            value=100 ,  className="form-control mb-3"
         ),
         html.Label("Number of randomisation:"),
         dcc.Input(
             id='num_random',
             type='number',
-            value=10
+            value=10  , className="form-control mb-3"
         ),
         html.Label("Balanced/Non-Balanced Data:"),
         dcc.RadioItems(
@@ -54,11 +62,11 @@ app.layout = html.Div([
                 {'label': 'Balanced', 'value': 'balanced'},
                 {'label': 'Non-Balanced', 'value': 'non-balanced'}
             ],
-            value='balanced'
+            value='balanced' , className="mb-3"
         ),
-        html.Div(id='graph1'),
-        html.Div(id='graph2')
-    ])
+        html.Div(id='graph1' , className="mb-4"),
+        html.Div(id='graph2' , className="mb-4")
+    ], className="container")
 ])
 
 # Call back function to run calculate accuracy and output plots
