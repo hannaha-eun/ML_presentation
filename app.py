@@ -92,6 +92,7 @@ app.layout = html.Div([
             ),
         ]),
         dcc.Graph(id="graph1" , className="mb-4"),
+        html.Div(id='result-summary', className="mb-3"), 
         dcc.Graph(id="graph2" , className="mb-4"),
         # html.Div(id='graph1', className="mb-4"),
         # html.Div(id='graph2', className="mb-4"),
@@ -141,7 +142,8 @@ def update_annotation_summary(annotation, filename):
 
 
 @app.callback(
-    [Output('graph1', 'figure'),
+    [Output('result-summary', 'children'),
+    Output('graph1', 'figure'),
      Output('graph2', 'figure'),
      Output('datatable_test', 'children')],
     [Input('confirm-start', 'submit_n_clicks')],
@@ -155,7 +157,7 @@ def update_annotation_summary(annotation, filename):
 )
 def update_output(submit_n_clicks, model_contents, pre_model, count_table, annotation, num_samples, num_random, option):
     if submit_n_clicks is None:
-        return dash.no_update, dash.no_update, dash.no_update
+        return'', dash.no_update, dash.no_update, dash.no_update
     
     # Load machine learning model
     if model_contents is not None:
@@ -167,7 +169,7 @@ def update_output(submit_n_clicks, model_contents, pre_model, count_table, annot
         model = pickle.load(open(pre_model, "rb"))
     else:
         # Handle case when no model is provided
-        return "Error: No model provided.", dash.no_update, dash.no_update
+        return '', "Error: No model provided.", dash.no_update, dash.no_update
 
 
 
@@ -197,6 +199,7 @@ def update_output(submit_n_clicks, model_contents, pre_model, count_table, annot
     accuracy_list=[]
     accuracy_dict={}
     accuracy_text = "" 
+    # summary_text =''
     combined_confusion_matrix = np.zeros((2, 2), dtype=int)
     # shuffle the annotation for 'fake' data 
     shuffled_df=merged_df.copy()
@@ -246,7 +249,7 @@ def update_output(submit_n_clicks, model_contents, pre_model, count_table, annot
     # ))
 
 
-    heat_fig = px.imshow(combined_confusion_matrix ,x=['Positive','Negative'] ,y=['Positive','Negative'] , text_auto=True, aspect="auto"  )
+    heat_fig = px.imshow(combined_confusion_matrix ,x=['Negative' ,'Positive'] ,y=['Negative' ,'Positive'] , text_auto=True, aspect="auto"  )
 
     # Customize the layout
     heat_fig.update_layout(
@@ -257,9 +260,19 @@ def update_output(submit_n_clicks, model_contents, pre_model, count_table, annot
         yaxis_showticklabels=False, 
         coloraxis_colorbar=dict(title='Count')  
     )
+    TN = combined_confusion_matrix[0, 0]
+    FP = combined_confusion_matrix[0, 1]
+    FN = combined_confusion_matrix[1, 0]
+    TP = combined_confusion_matrix[1, 1]
 
-
-    return fig, heat_fig  , dash_table.DataTable(data=acc_df.to_dict('records')) #, dcc.Markdown(accuracy_text)
+    summary_text=f"Average Accuracy Score : {acc_df['accuracy'].mean()}  \n "
+    # Print the values
+    summary_text += f"True Positive: {TP}  \n"
+    summary_text += f"False Positive: {FP}  \n"
+    summary_text += f"True Negative: {TN}  \n"
+    summary_text += f"False Negative: {FN}  \n"
+    
+    return dcc.Markdown(summary_text), fig, heat_fig  , dash_table.DataTable(data=acc_df.to_dict('records')) #, dcc.Markdown(accuracy_text)
 
 
 # def update_output(submit_n_clicks, model_contents, pre_model, count_table, annotation, num_samples, num_random, balance):
