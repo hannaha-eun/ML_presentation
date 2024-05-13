@@ -14,6 +14,7 @@ import plotly.express as px
 ## pip install scikit-learn==1.2.2
 import pickle
 from sklearn import metrics
+from sklearn.utils import shuffle
 from sklearn.metrics import confusion_matrix, accuracy_score
 
 
@@ -71,12 +72,12 @@ app.layout = html.Div([
             type='number',
             value=10, className="form-control mb-3 col-md-4"
         ),
-        html.Label("Balanced/Non-Balanced Data:"),
+        html.Label("Real Annotation/ Random Annotation:"),
         dcc.RadioItems(
             id='balanced-radio',
             options=[
-                {'label': 'Balanced', 'value': 'balanced'},
-                {'label': 'Non-Balanced', 'value': 'random'}
+                {'label': 'Real', 'value': 'real'},
+                {'label': 'Random', 'value': 'random'}
             ],
             value='balanced', className="mb-3"
         ),
@@ -152,8 +153,7 @@ def update_annotation_summary(annotation, filename):
      State('num_random', 'value'),
      State('balanced-radio', 'value')]
 )
-
-def update_output(submit_n_clicks, model_contents, pre_model, count_table, annotation, num_samples, num_random, balance):
+def update_output(submit_n_clicks, model_contents, pre_model, count_table, annotation, num_samples, num_random, option):
     if submit_n_clicks is None:
         return dash.no_update, dash.no_update, dash.no_update
     
@@ -180,55 +180,59 @@ def update_output(submit_n_clicks, model_contents, pre_model, count_table, annot
     annotation_df=annotation_df.set_index(annotation_df.columns[0])
     # merge count table and annotation table on sample name 
     count_df=count_df.T
-    merge_pd=pd.merge(count_df, annotation_df, right_index=True, left_index=True)    
+    merged_df=pd.merge(count_df, annotation_df, right_index=True, left_index=True)    
 
-    for index,row in merge_pd.iterrows() : #annot_df
+    for index,row in merged_df.iterrows() : #annot_df
         annot=row['Class']
         # this needs to be more sophisicagted for the actual annotation/dataset 
         ## this is for test purpose -> web app demo purpose 
         if annot == 'Positive' :
-            merge_pd.loc[index, 'Sample_Class'] = 1
+            merged_df.loc[index, 'Sample_Class'] = 1
         else : 
-            merge_pd.loc[index, 'Sample_Class'] = 0
+            merged_df.loc[index, 'Sample_Class'] = 0
 
-    case_df=merge_pd[merge_pd['Sample_Class'] == 1]
-    control_df=merge_pd[merge_pd['Sample_Class'] == 0]
+    case_df=merged_df[merged_df['Sample_Class'] == 1]
+    control_df=merged_df[merged_df['Sample_Class'] == 0]
 
     accuracy_list=[]
     accuracy_dict={}
     accuracy_text = "" 
     combined_confusion_matrix = np.zeros((2, 2), dtype=int)
+    # shuffle the annotation for 'fake' data 
+    shuffled_df=merged_df.copy()
+    shuffled_df['Sample_Class'] = np.random.permutation(shuffled_df['Sample_Class'])
+
     for randomization in range(n_random):
         # list of selected sample
-        if balance =='random' :
-            selected_samples = random.sample(list(merge_pd.T.columns), n_sample)
+        if option =='random' :
+            selected_samples = random.sample(list(shuffled_df.T.columns), n_sample)
+            randomized_df = shuffled_df.loc[selected_samples]
 
-        elif balance =='balanced' : 
-
-            selected_control_samples=random.sample(control_df.index.tolist(), n_sample)
-            selected_case_samples=random.sample(case_df.index.tolist(), n_sample)
-            selected_samples=selected_case_samples + selected_control_samples
-
-        # extract selected sample from count table 
-        randomized_df = merge_pd.loc[selected_samples]
+        elif option =='real' : 
+            selected_samples = random.sample(list(merged_df.T.columns), n_sample)
+            # extract selected sample from count table 
+            randomized_df = merged_df.loc[selected_samples]
+            
+            
         randomized_df_sample=randomized_df.drop(columns=['Sample_Class' ,'Class'])
         # extract selected sample from annotation table 
         annot_df2 = randomized_df['Sample_Class']
-        
         # predictuib
         testing_y_pred = model.predict(randomized_df_sample)
+
         # calculate accuracy score 
         acc = accuracy_score(annot_df2, testing_y_pred)
         accuracy_list.append(acc)
         accuracy_dict[randomization+1]=acc
         
-        print(f"Randomization {randomization + 1}: Accuracy = {acc}  n")
+        # print(f"Randomization {randomization + 1}: Accuracy = {acc}  n")
         accuracy_text += f"Randomization {randomization + 1}: Accuracy = {acc}  \n"
 
         # plot graphs
         confusion_matrix = metrics.confusion_matrix(annot_df2, testing_y_pred)
         combined_confusion_matrix += confusion_matrix
-    print(f"confusion matrix{ combined_confusion_matrix}")
+        
+    # print(f"confusion matrix{ combined_confusion_matrix}")
     acc_df = pd.DataFrame(list(accuracy_dict.items()),columns = ['n_random','accuracy']) 
     fig = px.histogram(accuracy_list, range_x=[0, 1], nbins=50)
 
@@ -256,6 +260,111 @@ def update_output(submit_n_clicks, model_contents, pre_model, count_table, annot
 
 
     return fig, heat_fig  , dash_table.DataTable(data=acc_df.to_dict('records')) #, dcc.Markdown(accuracy_text)
+
+
+# def update_output(submit_n_clicks, model_contents, pre_model, count_table, annotation, num_samples, num_random, balance):
+#     if submit_n_clicks is None:
+#         return dash.no_update, dash.no_update, dash.no_update
+    
+#     # Load machine learning model
+#     if model_contents is not None:
+#         content_type, content_string = model_contents.split(',')
+#         decoded = base64.b64decode(content_string)
+#         model = pickle.loads(decoded)
+#     elif pre_model is not None:
+#         # Load preselected machine learning model
+#         model = pickle.load(open(pre_model, "rb"))
+#     else:
+#         # Handle case when no model is provided
+#         return "Error: No model provided.", dash.no_update, dash.no_update
+
+
+
+#     n_random=int(num_random)
+#     n_sample = int(num_samples)
+
+#     count_df = decode_table(count_table)
+#     count_df=count_df.set_index(count_df.columns[0])
+#     annotation_df = decode_table(annotation)
+#     annotation_df=annotation_df.set_index(annotation_df.columns[0])
+#     # merge count table and annotation table on sample name 
+#     count_df=count_df.T
+#     merge_pd=pd.merge(count_df, annotation_df, right_index=True, left_index=True)    
+
+#     for index,row in merge_pd.iterrows() : #annot_df
+#         annot=row['Class']
+#         # this needs to be more sophisicagted for the actual annotation/dataset 
+#         ## this is for test purpose -> web app demo purpose 
+#         if annot == 'Positive' :
+#             merge_pd.loc[index, 'Sample_Class'] = 1
+#         else : 
+#             merge_pd.loc[index, 'Sample_Class'] = 0
+
+#     case_df=merge_pd[merge_pd['Sample_Class'] == 1]
+#     control_df=merge_pd[merge_pd['Sample_Class'] == 0]
+
+#     accuracy_list=[]
+#     accuracy_dict={}
+#     accuracy_text = "" 
+#     combined_confusion_matrix = np.zeros((2, 2), dtype=int)
+#     for randomization in range(n_random):
+#         # list of selected sample
+#         if balance =='random' :
+#             selected_samples = random.sample(list(merge_pd.T.columns), n_sample)
+
+#         elif balance =='balanced' : 
+
+#             selected_control_samples=random.sample(control_df.index.tolist(), n_sample)
+#             selected_case_samples=random.sample(case_df.index.tolist(), n_sample)
+#             selected_samples=selected_case_samples + selected_control_samples
+
+#         # extract selected sample from count table 
+#         randomized_df = merge_pd.loc[selected_samples]
+#         randomized_df_sample=randomized_df.drop(columns=['Sample_Class' ,'Class'])
+#         # extract selected sample from annotation table 
+#         annot_df2 = randomized_df['Sample_Class']
+        
+#         # predictuib
+#         testing_y_pred = model.predict(randomized_df_sample)
+#         # calculate accuracy score 
+#         acc = accuracy_score(annot_df2, testing_y_pred)
+#         accuracy_list.append(acc)
+#         accuracy_dict[randomization+1]=acc
+        
+#         print(f"Randomization {randomization + 1}: Accuracy = {acc}  n")
+#         accuracy_text += f"Randomization {randomization + 1}: Accuracy = {acc}  \n"
+
+#         # plot graphs
+#         confusion_matrix = metrics.confusion_matrix(annot_df2, testing_y_pred)
+#         combined_confusion_matrix += confusion_matrix
+#     print(f"confusion matrix{ combined_confusion_matrix}")
+#     acc_df = pd.DataFrame(list(accuracy_dict.items()),columns = ['n_random','accuracy']) 
+#     fig = px.histogram(accuracy_list, range_x=[0, 1], nbins=50)
+
+    
+
+#     fig.update_layout(title='Accuracy Distribution',  xaxis=dict(title='Accuracy'), yaxis=dict(title='# of times'))
+#     # fig.update_traces(xbins=dict( # bins used for histogram
+#     #     start=0.0,
+#     #     end=60.0,
+#     #     size=2
+#     # ))
+
+
+#     heat_fig = px.imshow(combined_confusion_matrix ,x=['Positive','Negative'] ,y=['Positive','Negative'] , text_auto=True, aspect="auto"  )
+
+#     # Customize the layout
+#     heat_fig.update_layout(
+#         title='Combined Confusion Matrix',
+#         xaxis=dict(title='Predicted value'),
+#         yaxis=dict(title='Real value'),
+#         xaxis_showticklabels=False,
+#         yaxis_showticklabels=False, 
+#         coloraxis_colorbar=dict(title='Count')  
+#     )
+
+
+#     return fig, heat_fig  , dash_table.DataTable(data=acc_df.to_dict('records')) #, dcc.Markdown(accuracy_text)
 
 
 
