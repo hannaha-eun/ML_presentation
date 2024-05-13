@@ -230,20 +230,19 @@ def update_output(submit_n_clicks, model_contents, pre_model, count_table, annot
         combined_confusion_matrix += confusion_matrix
     print(f"confusion matrix{ combined_confusion_matrix}")
     acc_df = pd.DataFrame(list(accuracy_dict.items()),columns = ['n_random','accuracy']) 
-    # fig = px.histogram(accuracy_list, range_x=[0, 1], nbins=20)
+    fig = px.histogram(accuracy_list, range_x=[0, 1], nbins=50)
 
-    counts, bins = np.histogram(accuracy_list,  bins=range(0, 20, 5))
-    bins = 0.5 * (bins[:-1] + bins[1:])
-
-    fig = px.bar(x=bins, y=counts,range_x=[0,1], labels={'x':'n_random', 'y':'accuracy'})
+    
 
     fig.update_layout(title='Accuracy Distribution',  xaxis=dict(title='Accuracy'), yaxis=dict(title='# of times'))
+    # fig.update_traces(xbins=dict( # bins used for histogram
+    #     start=0.0,
+    #     end=60.0,
+    #     size=2
+    # ))
 
-    # heat_fig=sns.heatmap(combined_confusion_matrix, annot=True, fmt="d", cbar=False) #
-    # heat_fig=px.imshow(combined_confusion_matrix , text_auto=True, aspect="auto") #, text_auto=True, aspect="auto"
-    # heat_fig.update_layout(title='Combined Confusion Matrix',  xaxis=dict(title='Predicted value'), yaxis=dict(title='Real value'))
 
-    heat_fig = px.imshow(combined_confusion_matrix , text_auto=True, aspect="auto" )
+    heat_fig = px.imshow(combined_confusion_matrix ,x=['Positive','Negative'] ,y=['Positive','Negative'] , text_auto=True, aspect="auto"  )
 
     # Customize the layout
     heat_fig.update_layout(
@@ -255,7 +254,6 @@ def update_output(submit_n_clicks, model_contents, pre_model, count_table, annot
         coloraxis_colorbar=dict(title='Count')  
     )
 
-    heat_fig.update_traces(hovertemplate='Predicted: %{x}<br>Real: %{y}<br>Count: %{z}<br>%{customdata}')
 
     return fig, heat_fig  , dash_table.DataTable(data=acc_df.to_dict('records')) #, dcc.Markdown(accuracy_text)
 
